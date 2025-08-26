@@ -1,0 +1,2 @@
+FLASK_APP=hospital_agent.py
+FLASK_ENV=development
