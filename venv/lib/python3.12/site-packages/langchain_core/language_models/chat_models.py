@@ -78,6 +78,11 @@ def _generate_response_from_error(error: BaseException) -> list[ChatGeneration]:
     if hasattr(error, "response"):
         response = error.response
         metadata: dict = {}
+        if hasattr(response, "json"):
+            try:
+                metadata["body"] = response.json()
+            except Exception:
+                metadata["body"] = getattr(response, "text", None)
         if hasattr(response, "headers"):
             try:
                 metadata["headers"] = dict(response.headers)
@@ -97,17 +102,18 @@ def _generate_response_from_error(error: BaseException) -> list[ChatGeneration]:
 
 
 def _format_for_tracing(messages: list[BaseMessage]) -> list[BaseMessage]:
-    """Format messages for tracing in on_chat_model_start.
+    """Format messages for tracing in ``on_chat_model_start``.
 
     - Update image content blocks to OpenAI Chat Completions format (backward
     compatibility).
-    - Add "type" key to content blocks that have a single key.
+    - Add ``type`` key to content blocks that have a single key.
 
     Args:
         messages: List of messages to format.
 
     Returns:
         List of messages formatted for tracing.
+
     """
     messages_to_trace = []
     for message in messages:
@@ -153,10 +159,11 @@ def generate_from_stream(stream: Iterator[ChatGenerationChunk]) -> ChatResult:
     """Generate from a stream.
 
     Args:
-        stream: Iterator of ChatGenerationChunk.
+        stream: Iterator of ``ChatGenerationChunk``.
 
     Returns:
         ChatResult: Chat result.
+
     """
     generation = next(stream, None)
     if generation:
@@ -180,10 +187,11 @@ async def agenerate_from_stream(
     """Async generate from a stream.
 
     Args:
-        stream: Iterator of ChatGenerationChunk.
+        stream: Iterator of ``ChatGenerationChunk``.
 
     Returns:
         ChatResult: Chat result.
+
     """
     chunks = [chunk async for chunk in stream]
     return await run_in_executor(None, generate_from_stream, iter(chunks))
@@ -311,15 +319,16 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
       provided. This offers the best of both worlds.
     - If False (default), will always use streaming case if available.
 
-    The main reason for this flag is that code might be written using ``.stream()`` and
+    The main reason for this flag is that code might be written using ``stream()`` and
     a user may want to swap out a given model for another model whose the implementation
     does not properly support streaming.
+
     """
 
     @model_validator(mode="before")
     @classmethod
     def raise_deprecation(cls, values: dict) -> Any:
-        """Raise deprecation warning if callback_manager is used.
+        """Raise deprecation warning if ``callback_manager`` is used.
 
         Args:
             values (Dict): Values to validate.
@@ -328,7 +337,8 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
             Dict: Validated values.
 
         Raises:
-            DeprecationWarning: If callback_manager is used.
+            DeprecationWarning: If ``callback_manager`` is used.
+
         """
         if values.get("callback_manager") is not None:
             warnings.warn(
@@ -528,7 +538,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                     generations = [generations_with_error_metadata]
                 run_manager.on_llm_error(
                     e,
-                    response=LLMResult(generations=generations),  # type: ignore[arg-type]
+                    response=LLMResult(generations=generations),
                 )
                 raise
 
@@ -622,7 +632,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                 generations = [generations_with_error_metadata]
             await run_manager.on_llm_error(
                 e,
-                response=LLMResult(generations=generations),  # type: ignore[arg-type]
+                response=LLMResult(generations=generations),
             )
             raise
 
@@ -653,6 +663,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             List of ChatGeneration objects.
+
         """
         converted_generations = []
         for gen in cache_val:
@@ -778,7 +789,8 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             An LLMResult, which contains a list of candidate Generations for each input
-                prompt and additional model provider-specific output.
+            prompt and additional model provider-specific output.
+
         """
         ls_structured_output_format = kwargs.pop(
             "ls_structured_output_format", None
@@ -835,17 +847,17 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                     run_managers[i].on_llm_error(
                         e,
                         response=LLMResult(
-                            generations=[generations_with_error_metadata]  # type: ignore[list-item]
+                            generations=[generations_with_error_metadata]
                         ),
                     )
                 raise
         flattened_outputs = [
-            LLMResult(generations=[res.generations], llm_output=res.llm_output)  # type: ignore[list-item]
+            LLMResult(generations=[res.generations], llm_output=res.llm_output)
             for res in results
         ]
         llm_output = self._combine_llm_outputs([res.llm_output for res in results])
         generations = [res.generations for res in results]
-        output = LLMResult(generations=generations, llm_output=llm_output)  # type: ignore[arg-type]
+        output = LLMResult(generations=generations, llm_output=llm_output)
         if run_managers:
             run_infos = []
             for manager, flattened_output in zip(run_managers, flattened_outputs):
@@ -892,7 +904,8 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             An LLMResult, which contains a list of candidate Generations for each input
-                prompt and additional model provider-specific output.
+            prompt and additional model provider-specific output.
+
         """
         ls_structured_output_format = kwargs.pop(
             "ls_structured_output_format", None
@@ -954,7 +967,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                     await run_managers[i].on_llm_error(
                         res,
                         response=LLMResult(
-                            generations=[generations_with_error_metadata]  # type: ignore[list-item]
+                            generations=[generations_with_error_metadata]
                         ),
                     )
                 exceptions.append(res)
@@ -964,7 +977,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                     *[
                         run_manager.on_llm_end(
                             LLMResult(
-                                generations=[res.generations],  # type: ignore[list-item, union-attr]
+                                generations=[res.generations],  # type: ignore[union-attr]
                                 llm_output=res.llm_output,  # type: ignore[union-attr]
                             )
                         )
@@ -974,12 +987,12 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
                 )
             raise exceptions[0]
         flattened_outputs = [
-            LLMResult(generations=[res.generations], llm_output=res.llm_output)  # type: ignore[list-item, union-attr]
+            LLMResult(generations=[res.generations], llm_output=res.llm_output)  # type: ignore[union-attr]
             for res in results
         ]
         llm_output = self._combine_llm_outputs([res.llm_output for res in results])  # type: ignore[union-attr]
         generations = [res.generations for res in results]  # type: ignore[union-attr]
-        output = LLMResult(generations=generations, llm_output=llm_output)  # type: ignore[arg-type]
+        output = LLMResult(generations=generations, llm_output=llm_output)
         await asyncio.gather(
             *[
                 run_manager.on_llm_end(flattened_output)
@@ -1248,6 +1261,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             The model output message.
+
         """
         generation = self.generate(
             [messages], stop=stop, callbacks=callbacks, **kwargs
@@ -1288,6 +1302,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             The model output string.
+
         """
         return self.predict(message, stop=stop, **kwargs)
 
@@ -1307,6 +1322,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             The predicted output string.
+
         """
         stop_ = None if stop is None else list(stop)
         result = self([HumanMessage(content=text)], stop=stop_, **kwargs)
@@ -1382,6 +1398,7 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 
         Returns:
             A Runnable that returns a message.
+
         """
         raise NotImplementedError
 
@@ -1544,8 +1561,10 @@ class BaseChatModel(BaseLanguageModel[BaseMessage], ABC):
 class SimpleChatModel(BaseChatModel):
     """Simplified implementation for a chat model to inherit from.
 
-    **Note** This implementation is primarily here for backwards compatibility.
-        For new implementations, please use `BaseChatModel` directly.
+    .. note::
+        This implementation is primarily here for backwards compatibility. For new
+        implementations, please use ``BaseChatModel`` directly.
+
     """
 
     def _generate(
